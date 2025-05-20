@@ -1,0 +1,111 @@
+version: '3'
+
+vars:
+  DEFAULT_TIMEOUT: 30
+  DEFAULT_OUTPUT_DIR: ./output
+
+tasks:
+  default:
+    desc: Display available tasks
+    cmds:
+      - task --list-all
+
+  extract:
+    desc: Extract and enhance HTML content from a URL or local file
+    vars:
+      URL: '{{.URL | default ""}}'
+      OUTPUT: '{{.OUTPUT | default ""}}'
+      SELECTOR: '{{.SELECTOR | default ""}}'
+      TIMEOUT: '{{.TIMEOUT | default .DEFAULT_TIMEOUT}}'
+    cmds:
+      - |
+        if [ -z "{{.URL}}" ] || [ -z "{{.OUTPUT}}" ]; then
+          echo "Error: URL and OUTPUT parameters are required"
+          echo "Usage: task extract URL=<url_or_file> OUTPUT=<output_path> [SELECTOR=<css_selector>] [TIMEOUT=<seconds>]"
+          exit 1
+        fi
+      - echo "Extracting HTML from {{.URL}} to {{.OUTPUT}}..."
+      - python runner.py extract --url "{{.URL}}" --output "{{.OUTPUT}}" {{if .SELECTOR}}--selector "{{.SELECTOR}}"{{end}} --timeout {{.TIMEOUT}}
+    silent: false
+
+  batch-extract:
+    desc: Process multiple URLs and extract HTML content
+    vars:
+      URL_LIST: '{{.URL_LIST | default ""}}'
+      OUTPUT_DIR: '{{.OUTPUT_DIR | default .DEFAULT_OUTPUT_DIR}}'
+      SELECTOR: '{{.SELECTOR | default ""}}'
+      TIMEOUT: '{{.TIMEOUT | default .DEFAULT_TIMEOUT}}'
+    cmds:
+      - |
+        if [ -z "{{.URL_LIST}}" ]; then
+          echo "Error: URL_LIST parameter is required"
+          echo "Usage: task batch-extract URL_LIST=<url_list_file> [OUTPUT_DIR=<output_directory>] [SELECTOR=<css_selector>] [TIMEOUT=<seconds>]"
+          exit 1
+        fi
+      - echo "Batch extracting HTML from URLs in {{.URL_LIST}} to {{.OUTPUT_DIR}}..."
+      - python runner.py batch-extract --url-list "{{.URL_LIST}}" --output-dir "{{.OUTPUT_DIR}}" {{if .SELECTOR}}--selector "{{.SELECTOR}}"{{end}} --timeout {{.TIMEOUT}}
+    silent: false
+  
+  setup:
+    desc: Install required dependencies
+    cmds:
+      - pip install playwright>=1.25.0 pyyaml>=6.0 pylint black
+      - python -m playwright install chromium
+    silent: false
+
+  test:
+    desc: Run tests for the HTML extractor
+    cmds:
+      - echo "Running tests for HTML extractor..."
+      - python -m unittest discover -s tests
+    silent: false
+    
+  # Linting and formatting tasks
+  lint:
+    desc: Run all linters (JavaScript and Python)
+    cmds:
+      - task: lint:js
+      - task: lint:py
+    silent: false
+
+  format:
+    desc: Run all formatters (JavaScript and Python)
+    cmds:
+      - task: format:js
+      - task: format:py
+    silent: false
+
+  lint:js:
+    desc: Lint JavaScript files with ESLint
+    cmds:
+      - echo "Linting JavaScript files..."
+      - eslint --config ../configs/eslint.config.js *.js
+    silent: false
+
+  lint:py:
+    desc: Lint Python files with pylint
+    cmds:
+      - echo "Linting Python files..."
+      - pylint --rcfile=../configs/pylint.config *.py
+    silent: false
+
+  format:js:
+    desc: Format JavaScript files with Prettier
+    cmds:
+      - echo "Formatting JavaScript files..."
+      - prettier --config ../configs/prettier.config.json --write *.js
+    silent: false
+
+  format:py:
+    desc: Format Python files with Black
+    cmds:
+      - echo "Formatting Python files..."
+      - black --config ../configs/pyproject.toml *.py
+    silent: false
+
+  install-dev:
+    desc: Install development dependencies
+    cmds:
+      - npm install --global prettier
+      - pip install pylint black
+    silent: false

@@ -1,0 +1,2 @@
+- EACH DIRECTORY MUST INCLUDE CLAUDE.md file! If it is not, create. When working inside category, ALWAYS rely on CLAUDE.md inside of it, as a single source of TRUTH
+- ALL code MUST be implemented inside a pkg folder
