@@ -1,8 +1,10 @@
 # LLM Link Extraction Finetuning
 
-A demonstration of finetuning large language models for precise URL extraction from text.
+A demonstration of finetuning large language models for precise URL extraction from text. (have never fine tunned the model before)
 
 ## Overview
+
+This is a test project to evaluate how much time is needed to implement link extraction functionality from HTML pages.
 
 This project shows how to finetune an open-source LLM to improve its ability to extract links from text while filtering out invalid or irrelevant content.
 
