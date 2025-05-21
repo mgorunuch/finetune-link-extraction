@@ -14,4 +14,8 @@ Total time: 2:33 (0:28 + 0:11 + 0:16 + 0:22 + 0:19 + 0:37)
 2025-05-20 11:17 - [DEV] +0:00 Started implementation of the simplified HTML injector
 2025-05-20 12:24 - [DEV] +0:07 Completed the implementation of the simplified HTML link extractor.
 Total time: 0:07
+
+2025-05-21 02:05 - [DEV] +0:00 Started (testing what we have done)
+2025-05-21 02:57 - [DEV] +0:52 Raw SDP call?) 0_o
+Total time: 0:52
 ```

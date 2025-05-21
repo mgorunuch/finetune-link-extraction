@@ -28,22 +28,33 @@ class HTMLExtractor:
     Loads HTML content, injects JavaScript for enhancement, and exports the result.
     """
 
-    def __init__(self, headless: bool = True):
+    def __init__(self, headless: bool = True, profile_name: str = "default"):
       """
       Initialize the HTML extractor.
 
       Args:
         headless: Whether to run the browser in headless mode
+        profile_name: The name of the Playwright profile to use
       """
       self.headless = headless
 
-      # Get the path to the injector.js file
+      # Get the path to the script directory
       self.script_dir = os.path.dirname(os.path.abspath(__file__))
+
+      # Set up profile path
+      self.profile_name = profile_name
+      self.profile_path = os.path.join(self.script_dir, "profile", profile_name)
+
+      # Get the path to the injector.js file
       self.injector_path = os.path.join(self.script_dir, "injector.js")
 
       # Check if injector script exists
       if not os.path.exists(self.injector_path):
         raise FileNotFoundError(f"JavaScript injector not found at {self.injector_path}")
+
+      # Check if profile directory exists
+      if not os.path.exists(self.profile_path):
+        self.logger.warning(f"Profile directory not found at {self.profile_path}, will use default browser settings")
 
       # Read the injector script
       with open(self.injector_path, "r", encoding="utf-8") as f:
@@ -111,7 +122,7 @@ class HTMLExtractor:
 
     def process_with_playwright(self, source: str) -> str:
       """
-      Process HTML using Playwright.
+      Process HTML using Playwright with profile support.
 
       Args:
         source: The HTML source or URL
@@ -123,21 +134,46 @@ class HTMLExtractor:
         Exception: If Playwright processing fails
       """
       self.logger.info("Processing with Playwright")
+      self.logger.info(f"Using profile: {self.profile_name}")
 
       with sync_playwright() as p:
-        browser = p.chromium.launch(headless=self.headless)
-        page = browser.new_page()
+        # Check if profile directory exists and is usable
+        use_profile = os.path.exists(self.profile_path)
+
+        if use_profile:
+          # Launch browser with persistent context using profile
+          self.logger.info(f"Loading browser with profile from {self.profile_path}")
+          browser_context = p.chromium.launch_persistent_context(
+            user_data_dir=self.profile_path,
+            headless=self.headless,
+            devtools=True,
+          )
+          page = browser_context.new_page()
+        else:
+          # Fall back to standard browser if profile doesn't exist
+          self.logger.warning("Profile not found, using default browser settings")
+          browser = p.chromium.launch(
+            headless=self.headless,
+            devtools=True,
+          )
+          page = browser.new_page()
 
         try:
           # Load the content
           if self.is_url(source):
+            self.logger.info(f"Navigating to URL: {source}")
             page.goto(source, wait_until="networkidle")
           else:
+            self.logger.info("Setting page content from HTML source")
             page.set_content(source)
 
-          # Inject and execute the script
-          result = page.evaluate(self.injector_script)
-
+          client = page.context.new_cdp_session(page)
+          result = client.send("Runtime.evaluate", {
+            "includeCommandLineAPI": True, # Required for using getEventListeners function
+            "expression": self.injector_script,
+            "returnByValue": True,
+          })
+          self.logger.debug(result)
           if not result:
             self.logger.warning("JavaScript injection did not complete successfully")
 
@@ -147,7 +183,10 @@ class HTMLExtractor:
           return enhanced_html
 
         finally:
-          browser.close()
+          if use_profile:
+            browser_context.close()
+          else:
+            browser.close()
 
     def process_html(self, source: str) -> str:
       """
@@ -226,6 +265,9 @@ def main():
     "--no-headless", action="store_true", help="Disable headless mode (shows browser UI)"
   )
   parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+  parser.add_argument(
+    "--profile", default="default", help="Playwright profile to use (default: 'default')"
+  )
 
   args = parser.parse_args()
 
@@ -236,7 +278,8 @@ def main():
   try:
     # Initialize the extractor
     extractor = HTMLExtractor(
-      headless=not args.no_headless
+      headless=not args.no_headless,
+      profile_name=args.profile
     )
 
     # Process the HTML
@@ -245,6 +288,7 @@ def main():
     # Print summary
     print(f"HTML processing complete!")
     print(f"Enhanced HTML saved to: {args.output}")
+    print(f"Used profile: {args.profile}")
 
   except Exception as e:
     print(f"Error: {str(e)}", file=sys.stderr)
